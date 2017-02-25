@@ -7,6 +7,10 @@ module Coinbase
         @product = options[:product_id] || 'BTC-USD'
         @keepalive = options[:keepalive] || false
 
+        @api_key = options[:api_key]
+        @api_secret = options[:api_secret]
+        @api_passphrase = options[:api_passphrase]
+
         @message_cb = ->(_data) { nil }
         @received_cb = ->(_data) { nil }
         @open_cb = ->(_data) { nil }
@@ -32,6 +36,7 @@ module Coinbase
         else
           @socket.onclose = ->(_event) {  nil }
         end
+
         @socket.close
       end
 
@@ -44,7 +49,20 @@ module Coinbase
       end
 
       def subscribe!(options = {})
-        product = options[:product_id] || @product
+        message = { type: 'subscribe' }
+        message[:product_id] = options[:product_id] || @product
+
+        if @api_key && @api_secret && @api_passphrase
+          timestamp = Time.now.utc.to_i.to_s
+          signature = Base64.encode64(
+            OpenSSL::HMAC.digest('sha256', Base64.decode64(@api_secret).strip,
+                                 "#{timestamp}GET/users/self")).strip
+          message[:timestamp] = timestamp
+          message[:siganture] = signature 
+          message[:key] = @api_key 
+          message[:passphrase] = @api_passphrase 
+        end
+
         @socket.send({ type: 'subscribe', product_id: product }.to_json)
       end
 
